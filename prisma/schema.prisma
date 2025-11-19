@@ -1,0 +1,53 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                Int       @id @default(autoincrement())
+  username          String
+  longitude         Float
+  latitude          Float
+  preferredLanguage String    @default("en")
+  createdAt         DateTime  @default(now())
+  capsules          Capsule[]
+  replies           Reply[]
+}
+
+model Capsule {
+  id             Int      @id @default(autoincrement())
+  opUserId       Int
+  opUser         User     @relation(fields: [opUserId], references: [id])
+  contentText    String
+  imageUrl       String?
+  audioUrl       String?
+  solarZoneIndex Int // 0-50
+  latitude       Float
+  longitude      Float
+  createdAt      DateTime @default(now())
+  expiresAt      DateTime
+
+  replies Reply[]
+
+  @@index([solarZoneIndex])
+  @@index([expiresAt])
+}
+
+model Reply {
+  id          Int      @id @default(autoincrement())
+  capsuleId   Int
+  capsule     Capsule  @relation(fields: [capsuleId], references: [id])
+  userId      Int
+  user        User     @relation(fields: [userId], references: [id])
+  contentText String
+  createdAt   DateTime @default(now())
+
+  @@index([capsuleId])
+}
