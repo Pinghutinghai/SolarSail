@@ -118,37 +118,19 @@ export default function SolarGlobe({ userLocation, onCapsuleClick, refreshTrigge
                 const lights: [number, number][] = [];
                 const countries = topojson.feature(data, data.objects.countries);
 
-                // Generate clustered city lights for realistic distribution
-                const cityCenters: [number, number][] = [];
+                // Generate uniformly distributed city lights on land
                 let attempts = 0;
+                const targetLights = 800; // Moderate number for even distribution
 
-                const numCenters = 50 + Math.floor(Math.random() * 30);
-                while (cityCenters.length < numCenters && attempts < 500) {
+                while (lights.length < targetLights && attempts < 5000) {
                     const lng = Math.random() * 360 - 180;
-                    const lat = (Math.random() - 0.5) * 120;
+                    const lat = (Math.random() - 0.5) * 120; // -60 to 60 latitude
 
                     if (d3.geoContains(countries, [lng, lat])) {
-                        cityCenters.push([lng, lat]);
+                        lights.push([lng, lat]);
                     }
                     attempts++;
                 }
-
-                cityCenters.forEach(center => {
-                    const clusterSize = 10 + Math.floor(Math.random() * 40);
-                    const spread = 0.5 + Math.random() * 2;
-
-                    for (let i = 0; i < clusterSize; i++) {
-                        const angle = Math.random() * Math.PI * 2;
-                        const distance = Math.sqrt(Math.random()) * spread;
-
-                        const lng = center[0] + Math.cos(angle) * distance;
-                        const lat = center[1] + Math.sin(angle) * distance;
-
-                        if (d3.geoContains(countries, [lng, lat])) {
-                            lights.push([lng, lat]);
-                        }
-                    }
-                });
 
                 nightLights.current = lights;
             })
@@ -301,11 +283,21 @@ export default function SolarGlobe({ userLocation, onCapsuleClick, refreshTrigge
                         if (center && d3.geoDistance(light, center as [number, number]) < 1.57) {
                             if (projected) {
                                 const [lx, ly] = projected;
-                                const size = 0.7 + (index % 3) * 0.3;
 
-                                ctx.shadowBlur = 3;
-                                ctx.shadowColor = 'rgba(255, 240, 180, 0.8)';
-                                ctx.fillStyle = 'rgba(255, 245, 200, 0.9)';
+                                // Breathing effect - different phase for each light
+                                const time = Date.now();
+                                const breathingPhase = (time / 4000 + index * 0.1) % 1; // 4 seconds per cycle (slower)
+                                const breathingIntensity = Math.sin(breathingPhase * Math.PI * 2) * 0.3 + 0.7; // 0.4 to 1.0
+
+                                const baseSize = 0.7 + (index % 3) * 0.3;
+                                const size = baseSize * breathingIntensity;
+
+                                // Slightly golden white color (微金色) - increased brightness
+                                const alpha = 0.95 * breathingIntensity;
+
+                                ctx.shadowBlur = 6 + breathingIntensity * 3; // Increased glow
+                                ctx.shadowColor = `rgba(255, 250, 230, ${alpha})`;
+                                ctx.fillStyle = `rgba(255, 252, 240, ${alpha})`; // Very slight golden tint
 
                                 ctx.beginPath();
                                 ctx.arc(lx, ly, size, 0, 2 * Math.PI);
