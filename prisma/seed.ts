@@ -61,7 +61,7 @@ async function seed() {
     console.log('🌍 Starting demo capsules generation...');
 
     // Create a demo user if doesn't exist
-    let demoUser = await prisma.user.findUnique({
+    let demoUser = await prisma.user.findFirst({
         where: { username: 'demo_traveler' }
     });
 
@@ -77,10 +77,10 @@ async function seed() {
     }
 
     // Delete existing demo capsules
-    await prisma.capsule.deleteMany({
+    const deleteResult = await prisma.capsule.deleteMany({
         where: { opUserId: demoUser.id }
     });
-    console.log('Cleaned up old demo capsules');
+    console.log(`Cleaned up ${deleteResult.count} old demo capsules`);
 
     let createdCount = 0;
 
@@ -106,7 +106,7 @@ async function seed() {
                     opUserId: demoUser.id,
                     latitude: city.lat + latVariation,
                     longitude: city.lng + lngVariation,
-                    solarZone: city.zone,
+                    solarZoneIndex: city.zone,
                     contentText: text,
                     createdAt,
                     expiresAt: new Date(createdAt.getTime() + 7 * 24 * 60 * 60 * 1000), // 7 days from creation
