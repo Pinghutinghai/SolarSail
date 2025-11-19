@@ -466,16 +466,16 @@ export default function SolarGlobe({ userLocation, onCapsuleClick, refreshTrigge
                         drawCapsule(ctx, ex, ey, c, time, currentUserId);
                     });
                 } else if (cluster.capsules.length > 1) {
-                    // Draw Cluster Blob
+                    // Draw Cluster Blob - 金色
                     const pulse = Math.sin(time / 1000) * 0.1 + 1;
                     ctx.beginPath();
                     ctx.arc(cluster.x, cluster.y, 6 * pulse, 0, 2 * Math.PI);
-                    ctx.fillStyle = 'rgba(34, 211, 238, 0.9)';
+                    ctx.fillStyle = 'rgba(251, 191, 36, 0.9)'; // 金色 Amber-400
                     ctx.fill();
 
                     // Glow
                     ctx.shadowBlur = 15;
-                    ctx.shadowColor = 'rgba(34, 211, 238, 0.6)';
+                    ctx.shadowColor = 'rgba(251, 191, 36, 0.6)';
                     ctx.stroke();
                     ctx.shadowBlur = 0;
                 } else {
@@ -500,13 +500,31 @@ export default function SolarGlobe({ userLocation, onCapsuleClick, refreshTrigge
                     ctx.stroke();
                     ctx.shadowBlur = 0;
                 } else {
-                    const isCyan = capsule.id % 2 === 0;
-                    const color = isCyan ? 'rgba(34, 211, 238, 0.5)' : 'rgba(167, 139, 250, 0.5)';
+                    // 其他用户的胶囊：粉色 + 扩散波纹
+                    const baseSize = 2.6; // 增加30% (原来2 * 1.3)
+                    const pinkColor = '#ec4899'; // Pink-500
+
+                    // 扩散波纹效果（类似用户位置）
+                    const pulseTime = (time / 2000 + capsule.id * 0.1) % 1;
+                    const maxRadius = 20;
 
                     ctx.beginPath();
-                    ctx.arc(x, y, 2 * pulse, 0, 2 * Math.PI);
-                    ctx.fillStyle = color;
+                    ctx.arc(x, y, maxRadius * pulseTime, 0, 2 * Math.PI);
+                    ctx.strokeStyle = `rgba(236, 72, 153, ${0.6 - pulseTime * 0.6})`;
+                    ctx.lineWidth = 1.2;
+                    ctx.stroke();
+
+                    // 核心点
+                    ctx.beginPath();
+                    ctx.arc(x, y, baseSize * pulse, 0, 2 * Math.PI);
+                    ctx.fillStyle = `rgba(236, 72, 153, 0.8)`;
                     ctx.fill();
+
+                    // 辉光
+                    ctx.shadowBlur = 10;
+                    ctx.shadowColor = pinkColor;
+                    ctx.stroke();
+                    ctx.shadowBlur = 0;
                 }
             }
 
