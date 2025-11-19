@@ -16,6 +16,7 @@ interface InboxItem {
         preview: string;
     } | null;
     capsuleAge: number;
+    nextUnlockAt?: string | null;
 }
 
 interface InboxProps {
@@ -50,9 +51,15 @@ export default function Inbox({ userId, onClose, onSelectCapsule }: InboxProps) 
         }
     };
 
+    const [now, setNow] = useState(new Date());
+
+    useEffect(() => {
+        const timer = setInterval(() => setNow(new Date()), 60000); // Update every minute
+        return () => clearInterval(timer);
+    }, []);
+
     const formatTimeAgo = (dateString: string) => {
         const date = new Date(dateString);
-        const now = new Date();
         const diffMs = now.getTime() - date.getTime();
         const diffHours = Math.floor(diffMs / (60 * 60 * 1000));
         const diffDays = Math.floor(diffHours / 24);
@@ -60,6 +67,19 @@ export default function Inbox({ userId, onClose, onSelectCapsule }: InboxProps) 
         if (diffDays > 0) return `${diffDays}d ago`;
         if (diffHours > 0) return `${diffHours}h ago`;
         return 'Just now';
+    };
+
+    const formatCountdown = (targetDateString?: string | null) => {
+        if (!targetDateString) return '';
+        const target = new Date(targetDateString);
+        const diffMs = target.getTime() - now.getTime();
+
+        if (diffMs <= 0) return 'Arriving soon';
+
+        const diffHours = Math.floor(diffMs / (60 * 60 * 1000));
+        const diffMinutes = Math.floor((diffMs % (60 * 60 * 1000)) / (60 * 1000));
+
+        return `Arriving in ${diffHours}h ${diffMinutes}m`;
     };
 
     return (
@@ -132,9 +152,13 @@ export default function Inbox({ userId, onClose, onSelectCapsule }: InboxProps) 
                                                 {item.unlockedReplies} Visible
                                             </span>
                                             {item.lockedReplies > 0 && (
-                                                <span className="text-amber-400/80 flex items-center gap-1">
+                                                <span className="text-amber-400/80 flex items-center gap-1 font-mono">
                                                     <span className="w-1 h-1 rounded-full bg-amber-400 animate-pulse"></span>
-                                                    {item.lockedReplies} Arriving
+                                                    {item.nextUnlockAt ? (
+                                                        <span>🕒 {formatCountdown(item.nextUnlockAt)}</span>
+                                                    ) : (
+                                                        <span>{item.lockedReplies} Arriving</span>
+                                                    )}
                                                 </span>
                                             )}
                                         </div>

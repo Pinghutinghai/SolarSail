@@ -25,7 +25,6 @@ export async function GET(request: Request) {
                     orderBy: {
                         createdAt: 'desc',
                     },
-                    take: 1,
                     include: {
                         user: {
                             select: {
@@ -52,6 +51,19 @@ export async function GET(request: Request) {
                 return replyAge >= 24 * 60 * 60 * 1000;
             }).length || 0;
 
+            // Find the next reply to unlock (oldest locked reply)
+            const lockedRepliesList = capsule.replies?.filter((reply: any) => {
+                const replyAge = now.getTime() - new Date(reply.createdAt).getTime();
+                return replyAge < 24 * 60 * 60 * 1000;
+            }).sort((a: any, b: any) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+
+            let nextUnlockAt = null;
+            if (lockedRepliesList && lockedRepliesList.length > 0) {
+                const oldestLocked = lockedRepliesList[0];
+                const unlockTime = new Date(oldestLocked.createdAt).getTime() + 24 * 60 * 60 * 1000;
+                nextUnlockAt = new Date(unlockTime).toISOString();
+            }
+
             // Only show latest reply if it's unlocked (24h+ old)
             const latestReply = capsule.replies?.[0];
             const latestReplyAge = latestReply
@@ -67,6 +79,7 @@ export async function GET(request: Request) {
                 totalReplies: capsule._count.replies,
                 unlockedReplies,
                 lockedReplies: capsule._count.replies - unlockedReplies,
+                nextUnlockAt,
                 latestReply: (latestReply && isLatestReplyUnlocked) ? {
                     username: latestReply.user.username,
                     createdAt: latestReply.createdAt,

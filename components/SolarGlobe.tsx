@@ -40,6 +40,14 @@ interface Particle {
     size: number;
 }
 
+interface Star {
+    x: number;
+    y: number;
+    size: number;
+    opacity: number;
+    twinkleSpeed: number;
+}
+
 // Helper to calculate drifted longitude
 function getDriftedLongitude(longitude: number, createdAt: string): number {
     const created = new Date(createdAt).getTime();
@@ -77,6 +85,7 @@ export default function SolarGlobe({ userLocation, onCapsuleClick, refreshTrigge
     const autoRotate = useRef(true);
     const tweenRef = useRef<d3.Timer | null>(null);
     const particles = useRef<Particle[]>([]);
+    const stars = useRef<Star[]>([]);
     const prevRefreshTrigger = useRef(refreshTrigger);
 
     // Fly to location animation
@@ -106,6 +115,22 @@ export default function SolarGlobe({ userLocation, onCapsuleClick, refreshTrigge
                 if (onComplete) onComplete();
             }
         });
+    }, []);
+
+    // Generate Stardust
+    useEffect(() => {
+        const count = 200;
+        const newStars: Star[] = [];
+        for (let i = 0; i < count; i++) {
+            newStars.push({
+                x: Math.random() * 800,
+                y: Math.random() * 800,
+                size: Math.random() * 1.5 + 0.5,
+                opacity: Math.random(),
+                twinkleSpeed: Math.random() * 0.02 + 0.005
+            });
+        }
+        stars.current = newStars;
     }, []);
 
     // Fetch World Data and Generate Clustered Night Lights
@@ -238,6 +263,17 @@ export default function SolarGlobe({ userLocation, onCapsuleClick, refreshTrigge
 
             const path = d3.geoPath(projection, ctx);
 
+            // Draw Stardust (Background)
+            stars.current.forEach(star => {
+                star.opacity += star.twinkleSpeed;
+                if (star.opacity > 1 || star.opacity < 0.2) star.twinkleSpeed *= -1;
+
+                ctx.beginPath();
+                ctx.arc(star.x, star.y, star.size, 0, 2 * Math.PI);
+                ctx.fillStyle = `rgba(255, 255, 255, ${Math.abs(star.opacity) * 0.4})`;
+                ctx.fill();
+            });
+
             // Draw Ocean
             ctx.beginPath();
             ctx.arc(width / 2, height / 2, scaleRef.current, 0, 2 * Math.PI);
@@ -366,42 +402,112 @@ export default function SolarGlobe({ userLocation, onCapsuleClick, refreshTrigge
                 ctx.shadowBlur = 0;
             }
 
-            // Draw Capsules
+            // Draw Capsules with Clustering
             const time = Date.now();
+
+            // 1. Project all visible capsules
+            const visibleCapsules: { x: number, y: number, c: Capsule }[] = [];
             capsules.forEach(capsule => {
                 const driftedLng = getDriftedLongitude(capsule.longitude, capsule.createdAt);
                 const coords: [number, number] = [driftedLng, capsule.latitude];
 
+                // Check visibility
                 const center = projection.invert ? projection.invert([width / 2, height / 2]) : [0, 0];
-                if (center && d3.geoDistance(coords, center as [number, number]) > 1.57) return;
-
-                const projected = projection(coords);
-                if (projected) {
-                    const [x, y] = projected;
-                    const pulse = Math.sin(time / 1500 + capsule.id) * 0.15 + 1;
-                    const isUserCapsule = currentUserId === capsule.opUserId;
-
-                    if (isUserCapsule) {
-                        ctx.beginPath();
-                        ctx.arc(x, y, 3.5, 0, 2 * Math.PI);
-                        ctx.fillStyle = '#fbbf24';
-                        ctx.fill();
-
-                        ctx.shadowBlur = 15;
-                        ctx.shadowColor = '#fbbf24';
-                        ctx.stroke();
-                        ctx.shadowBlur = 0;
-                    } else {
-                        const isCyan = capsule.id % 2 === 0;
-                        const color = isCyan ? 'rgba(34, 211, 238, 0.5)' : 'rgba(167, 139, 250, 0.5)';
-
-                        ctx.beginPath();
-                        ctx.arc(x, y, 2 * pulse, 0, 2 * Math.PI);
-                        ctx.fillStyle = color;
-                        ctx.fill();
+                if (center && d3.geoDistance(coords, center as [number, number]) <= 1.57) {
+                    const projected = projection(coords);
+                    if (projected) {
+                        visibleCapsules.push({ x: projected[0], y: projected[1], c: capsule });
                     }
                 }
             });
+
+            // 2. Cluster them
+            const clusters: { x: number, y: number, capsules: Capsule[] }[] = [];
+            visibleCapsules.forEach(p => {
+                let added = false;
+                for (const cluster of clusters) {
+                    // Clustering radius 20px
+                    if (Math.hypot(cluster.x - p.x, cluster.y - p.y) < 20) {
+                        cluster.capsules.push(p.c);
+                        // Simple center update
+                        cluster.x = (cluster.x * (cluster.capsules.length - 1) + p.x) / cluster.capsules.length;
+                        cluster.y = (cluster.y * (cluster.capsules.length - 1) + p.y) / cluster.capsules.length;
+                        added = true;
+                        break;
+                    }
+                }
+                if (!added) {
+                    clusters.push({ x: p.x, y: p.y, capsules: [p.c] });
+                }
+            });
+
+            // 3. Render Clusters
+            clusters.forEach(cluster => {
+                const isHovered = mousePos.current && Math.hypot(mousePos.current[0] - cluster.x, mousePos.current[1] - cluster.y) < 30;
+
+                if (cluster.capsules.length > 1 && isHovered) {
+                    // Water Droplet Split Effect
+                    cluster.capsules.forEach((c, i) => {
+                        const angle = (i / cluster.capsules.length) * Math.PI * 2 - Math.PI / 2;
+                        const radius = 30; // Split radius
+                        const ex = cluster.x + Math.cos(angle) * radius;
+                        const ey = cluster.y + Math.sin(angle) * radius;
+
+                        // Connection line
+                        ctx.beginPath();
+                        ctx.moveTo(cluster.x, cluster.y);
+                        ctx.lineTo(ex, ey);
+                        ctx.strokeStyle = 'rgba(34, 211, 238, 0.3)';
+                        ctx.lineWidth = 1;
+                        ctx.stroke();
+
+                        // Draw capsule
+                        drawCapsule(ctx, ex, ey, c, time, currentUserId);
+                    });
+                } else if (cluster.capsules.length > 1) {
+                    // Draw Cluster Blob
+                    const pulse = Math.sin(time / 1000) * 0.1 + 1;
+                    ctx.beginPath();
+                    ctx.arc(cluster.x, cluster.y, 6 * pulse, 0, 2 * Math.PI);
+                    ctx.fillStyle = 'rgba(34, 211, 238, 0.9)';
+                    ctx.fill();
+
+                    // Glow
+                    ctx.shadowBlur = 15;
+                    ctx.shadowColor = 'rgba(34, 211, 238, 0.6)';
+                    ctx.stroke();
+                    ctx.shadowBlur = 0;
+                } else {
+                    // Draw single capsule
+                    drawCapsule(ctx, cluster.x, cluster.y, cluster.capsules[0], time, currentUserId);
+                }
+            });
+
+            // Helper function for drawing a single capsule
+            function drawCapsule(ctx: CanvasRenderingContext2D, x: number, y: number, capsule: Capsule, time: number, currentUserId?: number) {
+                const pulse = Math.sin(time / 1500 + capsule.id) * 0.15 + 1;
+                const isUserCapsule = currentUserId === capsule.opUserId;
+
+                if (isUserCapsule) {
+                    ctx.beginPath();
+                    ctx.arc(x, y, 3.5, 0, 2 * Math.PI);
+                    ctx.fillStyle = '#fbbf24';
+                    ctx.fill();
+
+                    ctx.shadowBlur = 15;
+                    ctx.shadowColor = '#fbbf24';
+                    ctx.stroke();
+                    ctx.shadowBlur = 0;
+                } else {
+                    const isCyan = capsule.id % 2 === 0;
+                    const color = isCyan ? 'rgba(34, 211, 238, 0.5)' : 'rgba(167, 139, 250, 0.5)';
+
+                    ctx.beginPath();
+                    ctx.arc(x, y, 2 * pulse, 0, 2 * Math.PI);
+                    ctx.fillStyle = color;
+                    ctx.fill();
+                }
+            }
 
             // Draw User Location
             if (userLocation) {

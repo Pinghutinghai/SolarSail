@@ -131,126 +131,101 @@ export default function CapsuleCreator({ userId, latitude, longitude, onCapsuleC
                     <button onClick={onCancel} className="text-white/40 hover:text-white transition-colors p-2">✕</button>
                 </div>
 
-                <form onSubmit={handleSubmit} className="space-y-6">
-                    <div>
+                <form onSubmit={handleSubmit} className="space-y-4">
+                    <div className="relative">
                         <textarea
                             value={content}
                             onChange={(e) => setContent(e.target.value)}
-                            placeholder="What's on your mind at this solar time?"
-                            className="w-full h-32 bg-white/5 text-white p-4 rounded-xl border border-white/10 focus:border-white/30 focus:ring-0 outline-none resize-none placeholder-white/20 text-lg font-light"
+                            placeholder="Broadcast a thought into the night..."
+                            className="w-full h-48 bg-transparent text-white p-0 border-none focus:ring-0 outline-none resize-none placeholder-white/30 text-lg font-light leading-relaxed"
                             maxLength={500}
                             autoFocus
                         />
-                    </div>
 
-                    {/* Media Upload Section */}
-                    <div className="flex gap-4">
-                        <div className="flex-1">
-                            <label className="block text-xs text-white/40 uppercase tracking-widest mb-2">Image Signal</label>
-                            <div className="relative group">
-                                <input
-                                    ref={imageInputRef}
-                                    type="file"
-                                    accept="image/*"
-                                    onChange={handleImageSelect}
-                                    className="hidden"
-                                />
-                                <button
-                                    type="button"
-                                    onClick={() => imageInputRef.current?.click()}
-                                    className={`flex items-center justify-center w-full h-24 rounded-xl border border-dashed border-white/20 cursor-pointer hover:bg-white/5 transition-colors ${imageFile ? 'border-green-500/50 bg-green-500/10' : ''}`}
-                                >
-                                    {imageFile ? (
-                                        <div className="text-center overflow-hidden px-2">
-                                            <span className="text-2xl mb-1 block">📷</span>
-                                            <span className="text-[10px] text-green-400 block truncate max-w-full">{imageFile.name}</span>
-                                        </div>
-                                    ) : (
-                                        <span className="text-white/30 text-2xl">+</span>
+                        {/* Toolbar */}
+                        <div className="flex items-center justify-between mt-4 border-t border-white/10 pt-4">
+                            <div className="flex items-center gap-4">
+                                {/* Image Button */}
+                                <div className="relative">
+                                    <input
+                                        ref={imageInputRef}
+                                        type="file"
+                                        accept="image/*"
+                                        onChange={handleImageSelect}
+                                        className="hidden"
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => imageInputRef.current?.click()}
+                                        className={`p-2 rounded-full transition-colors ${imageFile ? 'text-cyan-400 bg-cyan-400/10' : 'text-white/40 hover:text-white hover:bg-white/5'}`}
+                                        title="Attach Image"
+                                    >
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                                            <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                                            <polyline points="21 15 16 10 5 21"></polyline>
+                                        </svg>
+                                    </button>
+                                    {imageFile && (
+                                        <span className="absolute -top-2 -right-2 w-2 h-2 bg-cyan-400 rounded-full"></span>
                                     )}
-                                </button>
+                                </div>
+
+                                {/* Audio Button */}
+                                <div className="relative">
+                                    <input
+                                        ref={audioInputRef}
+                                        type="file"
+                                        accept="audio/*"
+                                        onChange={handleAudioSelect}
+                                        className="hidden"
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => audioInputRef.current?.click()}
+                                        className={`p-2 rounded-full transition-colors ${audioFile ? 'text-cyan-400 bg-cyan-400/10' : 'text-white/40 hover:text-white hover:bg-white/5'}`}
+                                        title="Attach Audio"
+                                    >
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                            <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
+                                            <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+                                            <line x1="12" y1="19" x2="12" y2="23"></line>
+                                            <line x1="8" y1="23" x2="16" y2="23"></line>
+                                        </svg>
+                                    </button>
+                                    {audioFile && (
+                                        <span className="absolute -top-2 -right-2 w-2 h-2 bg-cyan-400 rounded-full"></span>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Submit Button */}
+                            <button
+                                type="submit"
+                                disabled={!content.trim() && !imageFile && !audioFile}
+                                className="px-6 py-2 bg-white/10 hover:bg-white/20 disabled:opacity-30 disabled:cursor-not-allowed rounded-full text-sm font-medium transition-all"
+                            >
+                                {isSubmitting ? uploadProgress : 'Transmit'}
+                            </button>
+                        </div>
+
+                        {/* File Previews */}
+                        {(imageFile || audioFile) && (
+                            <div className="flex gap-2 mt-2">
                                 {imageFile && (
-                                    <button
-                                        type="button"
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            setImageFile(null);
-                                        }}
-                                        className="absolute -top-2 -right-2 bg-red-500/80 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs hover:bg-red-500"
-                                    >
-                                        ✕
-                                    </button>
+                                    <div className="text-xs text-white/40 flex items-center gap-1 bg-white/5 px-2 py-1 rounded">
+                                        <span>📷 {imageFile.name}</span>
+                                        <button type="button" onClick={() => setImageFile(null)} className="hover:text-white">×</button>
+                                    </div>
                                 )}
-                            </div>
-                        </div>
-
-                        <div className="flex-1">
-                            <label className="block text-xs text-white/40 uppercase tracking-widest mb-2">Audio Signal</label>
-                            <div className="relative group">
-                                <input
-                                    ref={audioInputRef}
-                                    type="file"
-                                    accept="audio/*"
-                                    onChange={handleAudioSelect}
-                                    className="hidden"
-                                />
-                                <button
-                                    type="button"
-                                    onClick={() => audioInputRef.current?.click()}
-                                    className={`flex items-center justify-center w-full h-24 rounded-xl border border-dashed border-white/20 cursor-pointer hover:bg-white/5 transition-colors ${audioFile ? 'border-green-500/50 bg-green-500/10' : ''}`}
-                                >
-                                    {audioFile ? (
-                                        <div className="text-center overflow-hidden px-2">
-                                            <span className="text-2xl mb-1 block">🎵</span>
-                                            <span className="text-[10px] text-green-400 block truncate max-w-full">{audioFile.name}</span>
-                                        </div>
-                                    ) : (
-                                        <span className="text-white/30 text-2xl">+</span>
-                                    )}
-                                </button>
                                 {audioFile && (
-                                    <button
-                                        type="button"
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            setAudioFile(null);
-                                        }}
-                                        className="absolute -top-2 -right-2 bg-red-500/80 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs hover:bg-red-500"
-                                    >
-                                        ✕
-                                    </button>
+                                    <div className="text-xs text-white/40 flex items-center gap-1 bg-white/5 px-2 py-1 rounded">
+                                        <span>🎤 {audioFile.name}</span>
+                                        <button type="button" onClick={() => setAudioFile(null)} className="hover:text-white">×</button>
+                                    </div>
                                 )}
                             </div>
-                        </div>
-                    </div>
-
-                    {uploadProgress && (
-                        <div className="text-cyan-400 text-xs text-center font-mono animate-pulse">
-                            {uploadProgress}
-                        </div>
-                    )}
-
-                    <div className="pt-4 flex justify-end gap-3">
-                        <button
-                            type="button"
-                            onClick={onCancel}
-                            disabled={isSubmitting}
-                            className="px-6 py-3 rounded-full text-white/40 hover:text-white transition-colors text-sm font-light disabled:opacity-50"
-                        >
-                            Cancel
-                        </button>
-                        <button
-                            type="submit"
-                            disabled={!content.trim() || isSubmitting}
-                            className={`
-                                px-8 py-3 rounded-full text-sm font-semibold tracking-widest uppercase transition-all duration-300
-                                ${!content.trim() || isSubmitting
-                                    ? 'bg-white/5 text-white/20 cursor-not-allowed'
-                                    : 'bg-white text-black hover:bg-white/90 hover:scale-105 shadow-[0_0_20px_rgba(255,255,255,0.3)]'}
-                            `}
-                        >
-                            {isSubmitting ? 'Transmitting...' : 'Launch Capsule'}
-                        </button>
+                        )}
                     </div>
                 </form>
             </div>
