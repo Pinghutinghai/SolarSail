@@ -377,29 +377,41 @@ export default function SolarGlobe({ userLocation, onCapsuleClick, refreshTrigge
                 .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
 
             if (userCapsules.length > 1) {
-                const lineCoords: [number, number][] = userCapsules.map(c => {
-                    const driftedLng = getDriftedLongitude(c.longitude, c.createdAt);
-                    return [driftedLng, c.latitude];
-                });
+                // Draw segments with fading opacity
+                for (let i = 0; i < userCapsules.length - 1; i++) {
+                    const c1 = userCapsules[i];
+                    const c2 = userCapsules[i + 1];
 
-                const constellation: GeoJSON.LineString = {
-                    type: 'LineString',
-                    coordinates: lineCoords
-                };
+                    const lng1 = getDriftedLongitude(c1.longitude, c1.createdAt);
+                    const lng2 = getDriftedLongitude(c2.longitude, c2.createdAt);
 
-                ctx.beginPath();
-                // @ts-ignore
-                path(constellation);
-                ctx.strokeStyle = 'rgba(34, 211, 238, 0.6)';
-                ctx.lineWidth = 1.5;
-                ctx.setLineDash([4, 6]);
-                ctx.stroke();
+                    const segment: GeoJSON.LineString = {
+                        type: 'LineString',
+                        coordinates: [[lng1, c1.latitude], [lng2, c2.latitude]]
+                    };
+
+                    // Calculate opacity: newer connections are more visible
+                    // i=0 (oldest) -> 0.2
+                    // i=max (newest) -> 0.8
+                    const opacity = 0.2 + (i / (userCapsules.length - 1)) * 0.6;
+
+                    ctx.beginPath();
+                    // @ts-ignore
+                    path(segment);
+                    ctx.strokeStyle = `rgba(34, 211, 238, ${opacity})`;
+                    ctx.lineWidth = 1.5;
+                    ctx.setLineDash([4, 8]); // Ethereal dashed style
+                    ctx.stroke();
+
+                    // Add subtle glow to the newest segments
+                    if (i > userCapsules.length - 3) {
+                        ctx.shadowBlur = 5;
+                        ctx.shadowColor = `rgba(34, 211, 238, ${opacity * 0.5})`;
+                        ctx.stroke();
+                        ctx.shadowBlur = 0;
+                    }
+                }
                 ctx.setLineDash([]);
-
-                ctx.shadowBlur = 8;
-                ctx.shadowColor = 'rgba(34, 211, 238, 0.4)';
-                ctx.stroke();
-                ctx.shadowBlur = 0;
             }
 
             // Draw Capsules with Clustering
