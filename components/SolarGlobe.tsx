@@ -133,33 +133,21 @@ export default function SolarGlobe({ userLocation, onCapsuleClick, refreshTrigge
         stars.current = newStars;
     }, []);
 
-    // Fetch World Data and Generate Clustered Night Lights
+    // Fetch World Data AND Real City Lights
     useEffect(() => {
-        fetch('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json')
-            .then(res => res.json())
-            .then(data => {
-                setWorldData(data);
-
-                const lights: [number, number][] = [];
-                const countries = topojson.feature(data, data.objects.countries);
-
-                // Generate uniformly distributed city lights on land
-                let attempts = 0;
-                const targetLights = 800; // Moderate number for even distribution
-
-                while (lights.length < targetLights && attempts < 5000) {
-                    const lng = Math.random() * 360 - 180;
-                    const lat = (Math.random() - 0.5) * 120; // -60 to 60 latitude
-
-                    if (d3.geoContains(countries, [lng, lat])) {
-                        lights.push([lng, lat]);
-                    }
-                    attempts++;
-                }
-
-                nightLights.current = lights;
-            })
-            .catch(err => console.error('Failed to load world data', err));
+        Promise.all([
+            fetch('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json').then(res => res.json()),
+            fetch('https://d2ad6b4ur7yvpq.cloudfront.net/naturalearth-3.3.0/ne_50m_populated_places_simple.geojson').then(res => res.json())
+        ]).then(([worldData, citiesData]) => {
+            setWorldData(worldData);
+            const lights: [number, number][] = [];
+            // @ts-ignore
+            citiesData.features.forEach((feature: any) => {
+                const coords = feature.geometry.coordinates;
+                lights.push([coords[0], coords[1]]);
+            });
+            nightLights.current = lights;
+        }).catch(err => console.error('Failed to load map data', err));
     }, []);
 
     // Fetch Capsules
@@ -325,15 +313,16 @@ export default function SolarGlobe({ userLocation, onCapsuleClick, refreshTrigge
                                 const breathingPhase = (time / 4000 + index * 0.1) % 1; // 4 seconds per cycle (slower)
                                 const breathingIntensity = Math.sin(breathingPhase * Math.PI * 2) * 0.3 + 0.7; // 0.4 to 1.0
 
-                                const baseSize = 0.7 + (index % 3) * 0.3;
+                                const baseSize = 0.9 + (index % 5) * 0.15;
                                 const size = baseSize * breathingIntensity;
 
-                                // Slightly golden white color (微金色) - increased brightness
+                                // 琥珀色 - 更高亮度
                                 const alpha = 0.95 * breathingIntensity;
 
-                                ctx.shadowBlur = 6 + breathingIntensity * 3; // Increased glow
-                                ctx.shadowColor = `rgba(255, 250, 230, ${alpha})`;
-                                ctx.fillStyle = `rgba(255, 252, 240, ${alpha})`; // Very slight golden tint
+                                // 增强辉光
+                                ctx.shadowBlur = 6 + breathingIntensity * 3;
+                                ctx.shadowColor = `rgba(251, 191, 36, ${alpha * 0.8})`;
+                                ctx.fillStyle = `rgba(251, 191, 36, ${alpha})`;
 
                                 ctx.beginPath();
                                 ctx.arc(lx, ly, size, 0, 2 * Math.PI);
