@@ -46,7 +46,8 @@ const TIMEZONE_CITIES = [
 export async function POST() {
     try {
         // Create demo user
-        let demoUser = await prisma.user.findUnique({
+        // Create demo user
+        let demoUser = await prisma.user.findFirst({
             where: { username: 'demo_traveler' }
         });
 
@@ -85,7 +86,7 @@ export async function POST() {
                         opUserId: demoUser.id,
                         latitude: city.lat + latVariation,
                         longitude: city.lng + lngVariation,
-                        solarZone: city.zone,
+                        solarZoneIndex: city.zone,
                         contentText: text,
                         createdAt,
                         expiresAt: new Date(createdAt.getTime() + 7 * 24 * 60 * 60 * 1000),
