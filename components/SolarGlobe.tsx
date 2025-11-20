@@ -251,48 +251,57 @@ export default function SolarGlobe({ userLocation, onCapsuleClick, refreshTrigge
 
             const path = d3.geoPath(projection, ctx);
 
-            // Draw Stardust (Background)
+            // 1. Draw Atmosphere/Glow (Background)
+            const gradient = ctx.createRadialGradient(width / 2, height / 2, scaleRef.current * 0.8, width / 2, height / 2, scaleRef.current * 1.2);
+            gradient.addColorStop(0, 'rgba(14, 165, 233, 0.1)'); // Sky blue
+            gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, width, height);
+
+            // 2. Draw Stars
             stars.current.forEach(star => {
-                star.opacity += star.twinkleSpeed;
-                if (star.opacity > 1 || star.opacity < 0.2) star.twinkleSpeed *= -1;
+                star.opacity += (Math.random() - 0.5) * star.twinkleSpeed;
+                if (star.opacity < 0.2) star.opacity = 0.2;
+                if (star.opacity > 1) star.opacity = 1;
 
                 ctx.beginPath();
-                ctx.arc(star.x, star.y, star.size, 0, 2 * Math.PI);
-                ctx.fillStyle = `rgba(255, 255, 255, ${Math.abs(star.opacity) * 0.4})`;
+                ctx.arc(star.x, star.y, star.size, 0, Math.PI * 2);
+                ctx.fillStyle = `rgba(255, 255, 255, ${star.opacity})`;
                 ctx.fill();
             });
 
-            // Draw Ocean
+            // 3. Draw Ocean
             ctx.beginPath();
-            ctx.arc(width / 2, height / 2, scaleRef.current, 0, 2 * Math.PI);
-            ctx.fillStyle = '#0a0e27';
+            path({ type: 'Sphere' });
+            ctx.fillStyle = '#0f172a'; // Slate-900
             ctx.fill();
 
-            // Draw Land
+            // 4. Draw Land
             if (worldData) {
-                const countries = topojson.feature(worldData, worldData.objects.countries);
+                // @ts-ignore
+                const land = topojson.feature(worldData, worldData.objects.countries);
                 ctx.beginPath();
-                path(countries);
-                ctx.fillStyle = '#192339';
+                path(land);
+                ctx.fillStyle = '#1e293b'; // Slate-800
                 ctx.fill();
-                ctx.strokeStyle = '#304a6e';
+                ctx.strokeStyle = '#334155'; // Slate-700
                 ctx.lineWidth = 0.5;
                 ctx.stroke();
             }
 
-            // Fresnel Atmospheric Glow
+            // Fresnel Atmospheric Glow (Foreground)
             const centerX = width / 2;
             const centerY = height / 2;
             const radius = scaleRef.current;
 
-            const gradient = ctx.createRadialGradient(centerX, centerY, radius * 0.92, centerX, centerY, radius * 1.05);
-            gradient.addColorStop(0, 'rgba(100, 200, 255, 0)');
-            gradient.addColorStop(0.5, 'rgba(100, 200, 255, 0.15)');
-            gradient.addColorStop(1, 'rgba(150, 220, 255, 0.3)');
+            const glowGradient = ctx.createRadialGradient(centerX, centerY, radius * 0.92, centerX, centerY, radius * 1.05);
+            glowGradient.addColorStop(0, 'rgba(100, 200, 255, 0)');
+            glowGradient.addColorStop(0.5, 'rgba(100, 200, 255, 0.15)');
+            glowGradient.addColorStop(1, 'rgba(150, 220, 255, 0.3)');
 
             ctx.beginPath();
             ctx.arc(centerX, centerY, radius * 1.05, 0, 2 * Math.PI);
-            ctx.fillStyle = gradient;
+            ctx.fillStyle = glowGradient;
             ctx.fill();
 
             // Night Lights (Clustered)
@@ -530,27 +539,31 @@ export default function SolarGlobe({ userLocation, onCapsuleClick, refreshTrigge
 
             // Draw User Location
             if (userLocation) {
-                const projected = projection([userLocation.lng, userLocation.lat]);
-                if (projected) {
-                    const [x, y] = projected;
-                    const pulseTime = (time / 2000) % 1;
-                    const maxRadius = 25;
+                const center = projection.invert ? projection.invert([width / 2, height / 2]) : [0, 0];
+                // Check if user location is on the visible side of the globe
+                if (center && d3.geoDistance([userLocation.lng, userLocation.lat], center as [number, number]) <= 1.57) {
+                    const projected = projection([userLocation.lng, userLocation.lat]);
+                    if (projected) {
+                        const [x, y] = projected;
+                        const pulseTime = (time / 2000) % 1;
+                        const maxRadius = 25;
 
-                    ctx.beginPath();
-                    ctx.arc(x, y, maxRadius * pulseTime, 0, 2 * Math.PI);
-                    ctx.strokeStyle = `rgba(34, 211, 238, ${0.8 - pulseTime * 0.8})`;
-                    ctx.lineWidth = 1.5;
-                    ctx.stroke();
+                        ctx.beginPath();
+                        ctx.arc(x, y, maxRadius * pulseTime, 0, 2 * Math.PI);
+                        ctx.strokeStyle = `rgba(34, 211, 238, ${0.8 - pulseTime * 0.8})`;
+                        ctx.lineWidth = 1.5;
+                        ctx.stroke();
 
-                    ctx.beginPath();
-                    ctx.arc(x, y, 4, 0, 2 * Math.PI);
-                    ctx.fillStyle = '#22d3ee';
-                    ctx.fill();
+                        ctx.beginPath();
+                        ctx.arc(x, y, 4, 0, 2 * Math.PI);
+                        ctx.fillStyle = '#22d3ee';
+                        ctx.fill();
 
-                    ctx.shadowBlur = 15;
-                    ctx.shadowColor = '#22d3ee';
-                    ctx.stroke();
-                    ctx.shadowBlur = 0;
+                        ctx.shadowBlur = 15;
+                        ctx.shadowColor = '#22d3ee';
+                        ctx.stroke();
+                        ctx.shadowBlur = 0;
+                    }
                 }
             }
 

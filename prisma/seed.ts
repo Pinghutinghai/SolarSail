@@ -84,42 +84,73 @@ async function seed() {
 
     let createdCount = 0;
 
-    // Generate 3 capsules per timezone
-    for (const city of TIMEZONE_CITIES) {
-        for (let i = 0; i < 3; i++) {
-            // Slightly randomize position around the city
-            const latVariation = (Math.random() - 0.5) * 10;
-            const lngVariation = (Math.random() - 0.5) * 10;
+    // Generate capsules with CORRECT solarZoneIndex
+    // We generate enough capsules to likely cover all zones naturally
+    const TARGET_CAPSULES = 300;
+    const TOTAL_ZONES = 51;
+    const zoneWidth = 1440 / TOTAL_ZONES;
 
-            // Random text from the pool
-            const text = DEMO_TEXTS[Math.floor(Math.random() * DEMO_TEXTS.length)];
-
-            // Create capsule with a past timestamp (0-6 days ago)
-            const daysAgo = Math.floor(Math.random() * 7);
-            const hoursAgo = Math.floor(Math.random() * 24);
-            const createdAt = new Date();
-            createdAt.setDate(createdAt.getDate() - daysAgo);
-            createdAt.setHours(createdAt.getHours() - hoursAgo);
-
-            await prisma.capsule.create({
-                data: {
-                    opUserId: demoUser.id,
-                    latitude: city.lat + latVariation,
-                    longitude: city.lng + lngVariation,
-                    solarZoneIndex: city.zone,
-                    contentText: text,
-                    createdAt,
-                    expiresAt: new Date(createdAt.getTime() + 7 * 24 * 60 * 60 * 1000), // 7 days from creation
-                }
-            });
-
-            createdCount++;
-        }
-        console.log(`✓ Created 3 capsules for Zone ${city.zone} (${city.name})`);
+    // Helper to calculate zone (inlined to avoid import issues)
+    function calculateSolarZone(longitude: number, date: Date): number {
+        const offsetMinutes = longitude * 4;
+        const solarTime = new Date(date.getTime() + offsetMinutes * 60000);
+        const hours = solarTime.getUTCHours();
+        const minutes = solarTime.getUTCMinutes();
+        const totalMinutes = hours * 60 + minutes;
+        return Math.floor(totalMinutes / zoneWidth) % TOTAL_ZONES;
     }
 
-    console.log(`\n🎉 Successfully created ${createdCount} demo capsules!`);
-    console.log('You can now explore the globe and see capsules distributed across all 24 timezones.');
+    for (let i = 0; i < TARGET_CAPSULES; i++) {
+        // Pick a random city for location
+        const city = TIMEZONE_CITIES[Math.floor(Math.random() * TIMEZONE_CITIES.length)];
+
+        // Randomize position around the city (up to 15 degrees to spread them out)
+        const latVariation = (Math.random() - 0.5) * 30;
+        const lngVariation = (Math.random() - 0.5) * 30;
+
+        let latitude = city.lat + latVariation;
+        let longitude = city.lng + lngVariation;
+
+        // Normalize longitude
+        if (longitude > 180) longitude -= 360;
+        if (longitude < -180) longitude += 360;
+        // Clamp latitude
+        if (latitude > 90) latitude = 90;
+        if (latitude < -90) latitude = -90;
+
+        // Random text
+        const text = DEMO_TEXTS[Math.floor(Math.random() * DEMO_TEXTS.length)];
+
+        // Random creation time (0-7 days ago)
+        const daysAgo = Math.floor(Math.random() * 7);
+        const hoursAgo = Math.floor(Math.random() * 24);
+        const createdAt = new Date();
+        createdAt.setDate(createdAt.getDate() - daysAgo);
+        createdAt.setHours(createdAt.getHours() - hoursAgo);
+
+        // Calculate the REAL solar zone for this location and time
+        const zone = calculateSolarZone(longitude, createdAt);
+
+        await prisma.capsule.create({
+            data: {
+                opUserId: demoUser.id,
+                latitude,
+                longitude,
+                solarZoneIndex: zone, // Correctly calculated zone
+                contentText: text,
+                createdAt,
+                expiresAt: new Date(createdAt.getTime() + 7 * 24 * 60 * 60 * 1000),
+            }
+        });
+
+        createdCount++;
+        if (createdCount % 50 === 0) {
+            console.log(`✓ Created ${createdCount} capsules...`);
+        }
+    }
+
+    console.log(`\n🎉 Successfully created ${createdCount} demo capsules with consistent Solar Zones!`);
+    console.log('Capsules are now correctly distributed in time and space.');
 }
 
 seed()
